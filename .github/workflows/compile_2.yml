@@ -103,6 +103,10 @@ jobs:
         sudo rm -rf /usr/local/lib/android
         sudo rm -rf /opt/hostedtoolcache/codeql
         docker system prune -af || true
+    - name: Disk After Cleanup
+      run: |
+        df -h
+    
     - name: Checkout
       uses: actions/checkout@main
 
@@ -110,7 +114,7 @@ jobs:
       uses: hendrikmuhs/ccache-action@v1.2
       if: inputs.USE_CCACHE
       with:
-        max-size: "10G"
+        max-size: "2G"
         create-symlink: true
 
     - name: Setup zram
@@ -202,7 +206,7 @@ jobs:
 
     - name: Update OrangeFox Built-in Magisk
       run: |
-        git clone https://github.com/ymdzq/twrp_prebuilt ~/twrp_prebuilt
+        git clone --depth=1 https://github.com/ymdzq/twrp_prebuilt ~/twrp_prebuilt
         cd ${GITHUB_WORKSPACE}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}/${{ inputs.DEVICE_PATH }}
         if ! grep -q 'FOX_USE_SPECIFIC_MAGISK_ZIP' vendorsetup.sh; then (echo 'export FOX_USE_SPECIFIC_MAGISK_ZIP=~/twrp_prebuilt/Magisk/${{ inputs.MAGISK_VERSION }}.apk'>>vendorsetup.sh && echo "Added FOX_USE_SPECIFIC_MAGISK_ZIP in vendorsetup.sh"); else sed -i 's/.*export FOX_USE_SPECIFIC_MAGISK_ZIP.*/export FOX_USE_SPECIFIC_MAGISK_ZIP=\~\/twrp_prebuilt\/Magisk\/${{ inputs.MAGISK_VERSION }}.apk/' vendorsetup.sh; fi
         cd ${GITHUB_WORKSPACE}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}/vendor/recovery
@@ -242,7 +246,7 @@ jobs:
         if [[ ${{ inputs.MANIFEST_BRANCH }} == '14.1' ]]; then
         lunch twrp_${{ inputs.DEVICE_NAME }}-ap2a-eng && make clean && mka adbd ${{ inputs.BUILD_TARGET }}image
         else
-        lunch twrp_${{ inputs.DEVICE_NAME }}-eng && mka -j4 adbd ${{ inputs.BUILD_TARGET }}image
+        lunch twrp_${{ inputs.DEVICE_NAME }}-eng && make clean && mka adbd ${{ inputs.BUILD_TARGET }}image
         fi
 
     - name: Set Release Properties
@@ -256,18 +260,6 @@ jobs:
         fi
         echo "DEVICE_TREE_URL=${DEVICE_TREE_URL}" >> $GITHUB_ENV
 
-    - name: Inspect Build Output
-      run: |
-        cd ${GITHUB_WORKSPACE}/OrangeFox/fox_${{ inputs.MANIFEST_BRANCH }}/out/target/product/${{ inputs.DEVICE_NAME }}
-
-        echo "==== FILES ===="
-        ls -lh
-
-        echo "==== IMG INFO ===="
-        file *.img || true
-
-        echo "==== DISK ===="
-        df -h
     - name: Upload to Release
       uses: softprops/action-gh-release@master
       with:
